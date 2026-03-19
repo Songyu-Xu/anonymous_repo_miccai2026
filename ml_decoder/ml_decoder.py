@@ -65,7 +65,7 @@ class TransformerDecoderLayerOptimal(nn.Module):
         self.dropout3 = nn.Dropout(dropout)
 
         self.multihead_attn = nn.MultiheadAttention(d_model, nhead, dropout=dropout)
-        self.self_attn = self.multihead_attn  # 添加这一行，兼容新版 PyTorch
+        self.self_attn = self.multihead_attn
 
         # Implementation of Feedforward model
         self.linear1 = nn.Linear(d_model, dim_feedforward)
@@ -179,17 +179,12 @@ class MLDecoder(nn.Module):
             query_embed = torch.nn.functional.relu(self.wordvec_proj(self.decoder.query_embed))
         else:
             query_embed = self.decoder.query_embed.weight
-        # tgt = query_embed.unsqueeze(1).repeat(1, bs, 1)
         tgt = query_embed.unsqueeze(1).expand(-1, bs, -1)  # no allocation of memory with expand
         h = self.decoder(tgt, embedding_spatial_786.transpose(0, 1))  # [embed_len_decoder, batch, 768]
         h = h.transpose(0, 1)  # [batch, embed_len_decoder, 768]
 
-        # ---- NEW: return label-wise features for t-SNE visualization ----
         if return_label_features:
-            # h shape: [batch, num_classes, decoder_embedding]
-            # Each h[:, c, :] is the label-wise feature for class c
             return h
-        # ---- END NEW ----
 
         out_extrap = torch.zeros(h.shape[0], h.shape[1], self.decoder.duplicate_factor, device=h.device, dtype=h.dtype)
         self.decoder.group_fc(h, self.decoder.duplicate_pooling, out_extrap)
